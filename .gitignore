@@ -133,3 +133,5 @@ venv/
 
 # cache
 __pycache__/
+
+backend.zip

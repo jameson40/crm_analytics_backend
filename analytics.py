@@ -34,10 +34,12 @@ def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
         "company": "Компания",
         "amount_min": "Сумма",
         "amount_max": "Сумма",
-        "повторная_сделка": "Повторная сделка",
-        "повторное_обращение": "Повторное обращение",
+        "repeats": "Повторная сделка",
+        "recontacts": "Повторное обращение",
         "from": "Дата создания",
-        "to": "Дата создания"
+        "to": "Дата завершения",
+        "funnel": "Воронка",
+        "deal_type": "Тип сделки"
     }
 
     for key, value in filters.items():
@@ -70,7 +72,8 @@ def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
 
     return filtered_df
 
-def compute_summary(df: pd.DataFrame) -> dict:
+def compute_summary(df: pd.DataFrame, filters: Dict[str, Any], region_col: str | None = None) -> dict:
+    # Даже если пользователь не выбрал нормальную колонку региона, top_regions_by_sum будет работать, если в "Регион (гарантирование)" есть данные.
     return {
         "total_deals": int(len(df)),
         "total_amount": float(df["Сумма"].sum(skipna=True)) if "Сумма" in df and not df["Сумма"].isna().all() else 0.0,
@@ -80,10 +83,11 @@ def compute_summary(df: pd.DataFrame) -> dict:
         "deals_by_status": df["Текущий статус"].value_counts().to_dict() if "Текущий статус" in df else {},
         "top_companies_by_sum": df.groupby("Компания")["Сумма"].sum().nlargest(5).to_dict() if "Компания" in df and "Сумма" in df else {},
         "top_companies_by_count": df["Компания"].value_counts().nlargest(5).to_dict() if "Компания" in df else {},
+        "top_regions_by_sum": df.groupby(region_col)["Сумма"].sum().nlargest(5).to_dict() if region_col in df.columns and "Сумма" in df else {},
+        "top_regions_by_sum_note": {"region_col": region_col} if region_col else None, # "Использована колонка региона: region_col"
         "repeats": int((df["Повторная сделка"] == "Y").sum()) if "Повторная сделка" in df else 0,
         "recontacts": int((df["Повторное обращение"] == "Y").sum()) if "Повторное обращение" in df else 0,
-        "deals_by_voronka": df["Воронка"].value_counts().to_dict() if "Воронка" in df else {},
-        "empty_amounts": int(df["Сумма"].isna().sum()) if "Сумма" in df else 0,
+        "deals_by_funnel": df["Воронка"].value_counts().to_dict() if "Воронка" in df else {}
     }
 
 @router.post("/upload")
@@ -142,6 +146,8 @@ def get_available_filters():
         "statuses": sorted(df["Текущий статус"].dropna().unique().tolist()) if "Текущий статус" in df else [],
         "stages": sorted(df["Стадия сделки"].dropna().unique().tolist()) if "Стадия сделки" in df else [],
         "responsibles": sorted(df["Ответственный"].dropna().unique().tolist()) if "Ответственный" in df else [],
+        "funnels": sorted(df["Воронка"].dropna().unique().tolist()) if "Воронка" in df else [],
+        "deal_types": sorted(df["Тип сделки"].dropna().unique().tolist()) if "Тип сделки" in df else [],
     }
 
 @router.post("/analyze")
@@ -160,7 +166,11 @@ async def analyze(filters: str = Form("{}")):
         df = apply_filters(cached_df, filters_dict)
         print(f"[ANALYZE] строк после фильтрации: {len(df)}")
 
-        summary = compute_summary(df)
+        region_col = filters_dict.get("region_col")
+        if not region_col or region_col not in df.columns or df[region_col].isna().all():
+            region_col = "Регион (гарантирование)" if "Регион (гарантирование)" in df.columns else None
+
+        summary = compute_summary(df, filters_dict, region_col)
         return JSONResponse(content=json.loads(json.dumps(summary, allow_nan=False)), status_code=200)
 
     except Exception as e:
