@@ -134,7 +134,6 @@ def get_available_filters(region_col: str = Query(None)):
 
     df = cached_df
     print(f"[FILTERS] Строк: {len(df)}")
-    print(f"[FILTERS] Колонки: {df.columns.tolist()}")
 
     # Найдём все колонки, содержащие "Регион"
     region_columns = [col for col in df.columns if "Регион" in col]
