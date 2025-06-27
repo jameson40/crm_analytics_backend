@@ -1,5 +1,5 @@
 from typing import Any, Dict
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, Query, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
@@ -125,7 +125,7 @@ async def upload_csv(csv_file: UploadFile = File(...)):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 @router.get("/filters")
-def get_available_filters():
+def get_available_filters(region_col: str = Query(None)):
     global cached_df
 
     if cached_df is None:
@@ -136,12 +136,16 @@ def get_available_filters():
     print(f"[FILTERS] Строк: {len(df)}")
     print(f"[FILTERS] Колонки: {df.columns.tolist()}")
 
-    region_col = find_column(df, "Регион")
-
+    # Найдём все колонки, содержащие "Регион"
     region_columns = [col for col in df.columns if "Регион" in col]
 
+    # Используем выбранную колонку, если она валидна
+    selected_col = region_col if region_col in df.columns else find_column(df, "Регион")
+
+    print("[FILTERS] Выбранная колонка региона:", selected_col)
+
     return {
-        "regions": sorted(df[region_col].dropna().unique().tolist()) if region_col else [],
+        "regions": sorted(df[selected_col].dropna().unique().tolist()) if selected_col else [],
         "region_columns": region_columns,
         "statuses": sorted(df["Текущий статус"].dropna().unique().tolist()) if "Текущий статус" in df else [],
         "stages": sorted(df["Стадия сделки"].dropna().unique().tolist()) if "Стадия сделки" in df else [],
