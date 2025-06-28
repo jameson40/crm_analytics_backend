@@ -1,22 +1,19 @@
-from typing import Any
-from fastapi import APIRouter, Query, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Query
 from fastapi.responses import JSONResponse
-import pandas as pd
 from io import StringIO
+import pandas as pd
 import json
 import traceback
 
 from services.csv_parser import clean_dataframe
 from usecases.csv_analyze_deals import apply_filters, compute_summary, find_column
+from services.file_cache import store_dataframe, get_dataframe
 
 router = APIRouter()
-cached_df: pd.DataFrame | None = None  # Глобальный кэш
 
-@router.post("/upload")
+@router.post("/upload_csv")
 async def upload_csv(csv_file: UploadFile = File(...)):
-    global cached_df
     try:
-        print("[UPLOAD] Загружаем файл...")
         content = (await csv_file.read()).decode("utf-8")
         df = pd.read_csv(
             StringIO(content),
@@ -34,21 +31,21 @@ async def upload_csv(csv_file: UploadFile = File(...)):
                 df[col] = df[col].str.replace(r'\\"', '\"', regex=True)
                 df[col] = df[col].str.replace(r'\\\\', '', regex=True)
 
-        cached_df = clean_dataframe(df)
-        print(f"[UPLOAD] Загружено строк: {len(cached_df)}")
-        return {"status": "ok"}
+        df = clean_dataframe(df)
+        file_id = store_dataframe(df)
+        print(f"[UPLOAD] CSV загружен, строк: {len(df)}, file_id: {file_id}")
+        return {"status": "ok", "file_id": file_id}
 
     except Exception as e:
         print(f"[UPLOAD] Ошибка: {str(e)}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@router.get("/filters")
-def get_available_filters(region_col: str = Query(None)):
-    global cached_df
-    if cached_df is None:
-        return JSONResponse(content={"error": "Файл не загружен"}, status_code=400)
+@router.get("/filters_csv")
+def get_available_filters(file_id: str, region_col: str = Query(None)):
+    df = get_dataframe(file_id)
+    if df is None:
+        return JSONResponse(content={"error": "file_id не найден"}, status_code=400)
 
-    df = cached_df
     region_columns = [col for col in df.columns if "Регион" in col]
     selected_col = region_col if region_col in df.columns else find_column(df, "Регион")
     deal_type_col = next((col for col in df.columns if col.strip() == "Тип сделки"), None)
@@ -63,18 +60,18 @@ def get_available_filters(region_col: str = Query(None)):
         "deal_types": sorted(df[deal_type_col].dropna().unique().tolist()) if deal_type_col else [],
     }
 
-@router.post("/analyze")
-async def analyze(filters: str = Form("{}")):
-    global cached_df
+@router.post("/analyze_csv")
+async def analyze_csv(file_id: str = Form(...), filters: str = Form("{}")):
     try:
-        if cached_df is None:
-            return JSONResponse(content={"error": "Файл не загружен"}, status_code=400)
+        df = get_dataframe(file_id)
+        if df is None:
+            return JSONResponse(content={"error": "file_id не найден"}, status_code=400)
 
         filters_dict = json.loads(filters)
-        print(f"[ANALYZE] filters: {filters_dict}")
+        print(f"[ANALYZE CSV] filters: {filters_dict}")
 
-        df = apply_filters(cached_df, filters_dict)
-        print(f"[ANALYZE] строк после фильтрации: {len(df)}")
+        df = apply_filters(df, filters_dict)
+        print(f"[ANALYZE CSV] строк после фильтрации: {len(df)}")
 
         region_col = filters_dict.get("region_col")
         if not region_col or region_col not in df.columns or df[region_col].isna().all():
@@ -84,6 +81,6 @@ async def analyze(filters: str = Form("{}")):
         return JSONResponse(content=json.loads(json.dumps(summary, allow_nan=False)), status_code=200)
 
     except Exception as e:
-        print("[ANALYZE] Ошибка:")
+        print("[ANALYZE CSV] Ошибка:")
         traceback.print_exc()
         return JSONResponse(content={"error": str(e)}, status_code=400)
