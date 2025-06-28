@@ -44,23 +44,32 @@ async def upload_csv(csv_file: UploadFile = File(...)):
 
 @router.get("/filters_csv")
 def get_available_filters(file_id: str, region_col: str = Query(None)):
-    df = get_dataframe(file_id)
-    if df is None:
-        return JSONResponse(content={"error": "file_id не найден"}, status_code=400)
+    try:
+        df = get_dataframe(file_id)
+        print(f"[FILTERS] Получен запрос на фильтры для file_id: {file_id}")
+        if df is None:
+            return JSONResponse(content={"error": "file_id не найден"}, status_code=400)
 
-    region_columns = [col for col in df.columns if "Регион" in col]
-    selected_col = region_col if region_col in df.columns else find_column(df, "Регион")
-    deal_type_col = next((col for col in df.columns if col.strip() == "Тип сделки"), None)
+        print(f"[FILTERS] Строк: {len(df)}")
 
-    return FiltersResponse(
-        regions=sorted(df[selected_col].dropna().unique().tolist()) if selected_col else [],
-        region_columns=region_columns,
-        statuses=sorted(df["Текущий статус"].dropna().unique().tolist()) if "Текущий статус" in df else [],
-        stages=sorted(df["Стадия сделки"].dropna().unique().tolist()) if "Стадия сделки" in df else [],
-        responsibles=sorted(df["Ответственный"].dropna().unique().tolist()) if "Ответственный" in df else [],
-        funnels=sorted(df["Воронка"].dropna().unique().tolist()) if "Воронка" in df else [],
-        deal_types=sorted(df[deal_type_col].dropna().unique().tolist()) if deal_type_col else [],
-    )
+        region_columns = [col for col in df.columns if "Регион" in col]
+        selected_col = region_col if region_col in df.columns else find_column(df, "Регион")
+        deal_type_col = next((col for col in df.columns if col.strip() == "Тип сделки"), None)
+
+        print("[FILTERS] Выбранная колонка региона:", selected_col)
+
+        return FiltersResponse(
+            regions=sorted(df[selected_col].dropna().unique().tolist()) if selected_col else [],
+            region_columns=region_columns,
+            statuses=sorted(df["Текущий статус"].dropna().unique().tolist()) if "Текущий статус" in df else [],
+            stages=sorted(df["Стадия сделки"].dropna().unique().tolist()) if "Стадия сделки" in df else [],
+            responsibles=sorted(df["Ответственный"].dropna().unique().tolist()) if "Ответственный" in df else [],
+            funnels=sorted(df["Воронка"].dropna().unique().tolist()) if "Воронка" in df else [],
+            deal_types=sorted(df[deal_type_col].dropna().unique().tolist()) if deal_type_col else [],
+        )
+    except Exception as e:
+        print(f"[FILTERS] Ошибка: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
 @router.post("/analyze_csv")
