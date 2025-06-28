@@ -19,8 +19,8 @@ async def upload_csv(csv_file: UploadFile = File(...)):
             StringIO(content),
             sep=";",
             encoding="utf-8",
-            quotechar='\"',
-            escapechar='\\\\',
+            quotechar='"',
+            escapechar='\\',
             doublequote=False,
             engine="python",
             on_bad_lines="warn"
