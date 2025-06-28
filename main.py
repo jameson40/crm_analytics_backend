@@ -3,13 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import traceback
 
-from analytics import router as analytics_router
-from regions import router as regions_router
+from api.csv_analytics import router as csv_analytics_router
 
 app = FastAPI()
 
-app.include_router(analytics_router)
-app.include_router(regions_router)
+app.include_router(csv_analytics_router)
 
 # Разрешаем доступ с фронта
 app.add_middleware(
