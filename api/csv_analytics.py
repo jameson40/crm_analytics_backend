@@ -28,8 +28,8 @@ async def upload_csv(csv_file: UploadFile = File(...)):
         df.columns = df.columns.str.strip()
         for col in df.columns:
             if df[col].dtype == 'object':
-                df[col] = df[col].str.replace(r'\\"', '\"', regex=True)
-                df[col] = df[col].str.replace(r'\\\\', '', regex=True)
+                df[col] = df[col].str.replace(r'\\"', '"', regex=True)
+                df[col] = df[col].str.replace(r'\\', '', regex=True)
 
         df = clean_dataframe(df)
         file_id = store_dataframe(df)
