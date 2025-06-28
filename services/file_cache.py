@@ -1,14 +1,20 @@
 import pandas as pd
 import uuid
-from typing import Dict
+import os
 
-# Кэш для хранения загруженных таблиц
-file_cache: Dict[str, pd.DataFrame] = {}
+# Кэш теперь внутри проекта
+BASE_DIR = os.path.dirname(__file__)
+CACHE_DIR = os.path.abspath(os.path.join(BASE_DIR, "../cache"))
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 def store_dataframe(df: pd.DataFrame) -> str:
     file_id = str(uuid.uuid4())
-    file_cache[file_id] = df
+    path = os.path.join(CACHE_DIR, f"{file_id}.pkl")
+    df.to_pickle(path)
     return file_id
 
 def get_dataframe(file_id: str) -> pd.DataFrame | None:
-    return file_cache.get(file_id)
+    path = os.path.join(CACHE_DIR, f"{file_id}.pkl")
+    if not os.path.exists(path):
+        return None
+    return pd.read_pickle(path)

@@ -1,4 +1,3 @@
-
 import pandas as pd
 import re
 
@@ -24,6 +23,26 @@ def normalize_column(name: str) -> str:
     if "застройщик" in name:
         return "застройщик"
     return name
+
+def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    # Приведение колонок к нужным типам
+    if "год" in df.columns:
+        df["год"] = pd.to_numeric(df["год"], errors="coerce").astype("Int64")
+
+    if "стоимость" in df.columns:
+        df["стоимость"] = pd.to_numeric(df["стоимость"], errors="coerce")
+
+    if "площадь" in df.columns:
+        df["площадь"] = pd.to_numeric(df["площадь"], errors="coerce")
+
+    if "регион" in df.columns:
+        df["регион"] = df["регион"].astype(str).str.strip()
+
+    # Удалим строки без застройщика или стоимости
+    if "застройщик" in df.columns and "стоимость" in df.columns:
+        df = df.dropna(subset=["застройщик", "стоимость"], how="all")
+
+    return df
 
 def parse_excel_unified(file) -> pd.DataFrame:
     xls = pd.ExcelFile(file)
