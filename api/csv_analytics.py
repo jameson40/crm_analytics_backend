@@ -65,7 +65,7 @@ def get_available_filters(file_id: str, region_col: str = Query(None)):
             stages=sorted(df["Стадия сделки"].dropna().unique().tolist()) if "Стадия сделки" in df else [],
             responsibles=sorted(df["Ответственный"].dropna().unique().tolist()) if "Ответственный" in df else [],
             funnels=sorted(df["Воронка"].dropna().unique().tolist()) if "Воронка" in df else [],
-            deal_types=sorted(df[deal_type_col].dropna().unique().tolist()) if deal_type_col else [],
+            deals_type=sorted(df[deal_type_col].dropna().unique().tolist()) if deal_type_col else [],
         )
     except Exception as e:
         print(f"[FILTERS] Ошибка: {e}")
