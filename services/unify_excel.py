@@ -60,7 +60,6 @@ def parse_excel_unified(file) -> pd.DataFrame:
 
     for sheet in xls.sheet_names:
         df_raw = pd.read_excel(xls, sheet_name=sheet, header=None)
-
         header_idx = df_raw[df_raw.apply(
             lambda row: row.astype(str).str.contains("Застройщик", case=False).any(),
             axis=1
@@ -70,19 +69,18 @@ def parse_excel_unified(file) -> pd.DataFrame:
             header_row = header_idx[0]
             df = pd.read_excel(xls, sheet_name=sheet, skiprows=header_row, header=0)
             df.columns = [normalize_column(col) for col in df.columns]
-            df.columns = pd.io.parsers.ParserBase({'names': df.columns})._maybe_dedup_names(df.columns)
+
+            if "застройщик" in df.columns and "стоимость" in df.columns:
+                df = df.dropna(subset=["застройщик", "стоимость"], how="all")
+
             df["__source_sheet"] = sheet
-
-            # Безопасное удаление строк без нужных данных
-            builder_col = find_column_by_keywords(df.columns, "застройщик")
-            cost_col = find_column_by_keywords(df.columns, "стоимость")
-            cols_to_check = [col for col in [builder_col, cost_col] if col]
-            if cols_to_check:
-                df = df.dropna(subset=cols_to_check, how="all")
-
             all_dfs.append(df)
 
     if not all_dfs:
         raise ValueError("Не удалось найти таблицы сделок в Excel.")
+
+    common_cols = set.intersection(*(set(df.columns) for df in all_dfs))
+    print(f"[EXCEL] Общие колонки после нормализации: {common_cols}")
+    all_dfs = [df[list(common_cols)] for df in all_dfs]
 
     return pd.concat(all_dfs, ignore_index=True)
