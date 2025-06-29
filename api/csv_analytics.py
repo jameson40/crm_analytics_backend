@@ -68,7 +68,6 @@ def get_available_filters(file_id: str, region_col: str = Query(None)):
             deals_type=sorted(df[deal_type_col].dropna().unique().tolist()) if deal_type_col else [],
         )
 
-        print("[DEBUG] filters dict →", result.dict())
         return result
     except Exception as e:
         print(f"[FILTERS] Ошибка: {e}")
