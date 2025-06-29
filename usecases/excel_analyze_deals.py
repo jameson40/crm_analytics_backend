@@ -13,20 +13,6 @@ def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
     if "years" in filters and "год" in df.columns:
         filtered_df = filtered_df[filtered_df["год"].isin(filters["years"])]
 
-    if "min_cost" in filters and "стоимость" in df.columns:
-        try:
-            min_cost = float(filters["min_cost"])
-            filtered_df = filtered_df[filtered_df["стоимость"] >= min_cost]
-        except ValueError:
-            pass
-
-    if "max_cost" in filters and "стоимость" in df.columns:
-        try:
-            max_cost = float(filters["max_cost"])
-            filtered_df = filtered_df[filtered_df["стоимость"] <= max_cost]
-        except ValueError:
-            pass
-
     return filtered_df
 
 def compute_summary(df: pd.DataFrame) -> dict:
