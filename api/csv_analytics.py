@@ -81,7 +81,7 @@ async def analyze_csv(payload: AnalyzeCsvRequest):
         if df is None:
             return JSONResponse(content={"error": "file_id не найден"}, status_code=400)
 
-        filters_dict = json.loads(filters)
+        filters_dict = filters
         print(f"[ANALYZE CSV] filters: {filters_dict}")
 
         df = apply_filters(df, filters_dict)
