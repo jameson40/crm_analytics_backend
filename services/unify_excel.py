@@ -24,6 +24,12 @@ def normalize_column(name: str) -> str:
         return "застройщик"
     return name
 
+def find_column_by_keywords(columns, keyword: str) -> str | None:
+    for col in columns:
+        if keyword in col.lower():
+            return col
+    return None
+
 def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     # Приведение колонок к нужным типам
     if "год" in df.columns:
@@ -38,9 +44,13 @@ def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if "регион" in df.columns:
         df["регион"] = df["регион"].astype(str).str.strip()
 
-    # Удалим строки без застройщика или стоимости
-    if "застройщик" in df.columns and "стоимость" in df.columns:
-        df = df.dropna(subset=["застройщик", "стоимость"], how="all")
+    # Безопасное удаление строк без застройщика и стоимости
+    builder_col = find_column_by_keywords(df.columns, "застройщик")
+    cost_col = find_column_by_keywords(df.columns, "стоимость")
+
+    cols_to_check = [col for col in [builder_col, cost_col] if col]
+    if cols_to_check:
+        df = df.dropna(subset=cols_to_check, how="all")
 
     return df
 
@@ -50,6 +60,7 @@ def parse_excel_unified(file) -> pd.DataFrame:
 
     for sheet in xls.sheet_names:
         df_raw = pd.read_excel(xls, sheet_name=sheet, header=None)
+
         header_idx = df_raw[df_raw.apply(
             lambda row: row.astype(str).str.contains("Застройщик", case=False).any(),
             axis=1
@@ -61,7 +72,14 @@ def parse_excel_unified(file) -> pd.DataFrame:
             df.columns = [normalize_column(col) for col in df.columns]
             df.columns = pd.io.parsers.ParserBase({'names': df.columns})._maybe_dedup_names(df.columns)
             df["__source_sheet"] = sheet
-            df = df.dropna(subset=["застройщик", "стоимость"], how="all")
+
+            # Безопасное удаление строк без нужных данных
+            builder_col = find_column_by_keywords(df.columns, "застройщик")
+            cost_col = find_column_by_keywords(df.columns, "стоимость")
+            cols_to_check = [col for col in [builder_col, cost_col] if col]
+            if cols_to_check:
+                df = df.dropna(subset=cols_to_check, how="all")
+
             all_dfs.append(df)
 
     if not all_dfs:

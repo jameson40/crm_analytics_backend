@@ -42,7 +42,7 @@ async def upload_csv(csv_file: UploadFile = File(...)):
         print(f"[UPLOAD] Ошибка: {str(e)}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@router.get("/filters_csv")
+@router.get("/filters_csv", response_model=FiltersResponse)
 def get_available_filters(file_id: str, region_col: str = Query(None)):
     try:
         df = get_dataframe(file_id)
@@ -58,7 +58,7 @@ def get_available_filters(file_id: str, region_col: str = Query(None)):
 
         print("[FILTERS] Выбранная колонка региона:", selected_col)
 
-        return FiltersResponse(
+        result = FiltersResponse(
             regions=sorted(df[selected_col].dropna().unique().tolist()) if selected_col else [],
             region_columns=region_columns,
             statuses=sorted(df["Текущий статус"].dropna().unique().tolist()) if "Текущий статус" in df else [],
@@ -67,10 +67,19 @@ def get_available_filters(file_id: str, region_col: str = Query(None)):
             funnels=sorted(df["Воронка"].dropna().unique().tolist()) if "Воронка" in df else [],
             deals_type=sorted(df[deal_type_col].dropna().unique().tolist()) if deal_type_col else [],
         )
+
+        return result
     except Exception as e:
         print(f"[FILTERS] Ошибка: {e}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
+@router.get("/regions_csv")
+def get_regions_csv(file_id: str, region_col: str = Query(...)):
+    df = get_dataframe(file_id)
+    if df is None or region_col not in df.columns:
+        return JSONResponse(content={"regions": []}, status_code=200)
+    regions = sorted(df[region_col].dropna().unique().tolist())
+    return {"regions": regions}
 
 @router.post("/analyze_csv")
 async def analyze_csv(payload: AnalyzeCsvRequest):
