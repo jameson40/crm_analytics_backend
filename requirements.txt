@@ -1,10 +1,12 @@
 annotated-types==0.7.0
 anyio==4.9.0
 click==8.2.1
+et_xmlfile==2.0.0
 fastapi==0.115.13
 h11==0.16.0
 idna==3.10
 numpy==2.3.0
+openpyxl==3.1.5
 pandas==2.3.0
 pathlib==1.0.1
 pydantic==2.11.7
