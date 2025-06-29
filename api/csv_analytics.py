@@ -66,7 +66,7 @@ def get_available_filters(file_id: str, region_col: str = Query(None)):
             responsibles=sorted(df["Ответственный"].dropna().unique().tolist()) if "Ответственный" in df else [],
             funnels=sorted(df["Воронка"].dropna().unique().tolist()) if "Воронка" in df else [],
             deals_type=sorted(df[deal_type_col].dropna().unique().tolist()) if deal_type_col else [],
-        ).dict()
+        )
 
         print("[DEBUG] filters dict →", result.dict())
         return result
