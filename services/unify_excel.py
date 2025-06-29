@@ -59,6 +59,7 @@ def parse_excel_unified(file) -> pd.DataFrame:
             header_row = header_idx[0]
             df = pd.read_excel(xls, sheet_name=sheet, skiprows=header_row, header=0)
             df.columns = [normalize_column(col) for col in df.columns]
+            df.columns = pd.io.parsers.ParserBase({'names': df.columns})._maybe_dedup_names(df.columns)
             df["__source_sheet"] = sheet
             df = df.dropna(subset=["застройщик", "стоимость"], how="all")
             all_dfs.append(df)
