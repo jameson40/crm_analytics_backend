@@ -4,10 +4,12 @@ from fastapi.responses import JSONResponse
 import traceback
 
 from api.csv_analytics import router as csv_analytics_router
+from api.excel_analytics import router as excel_analytics_router
 
 app = FastAPI()
 
 app.include_router(csv_analytics_router)
+app.include_router(excel_analytics_router)
 
 # Разрешаем доступ с фронта
 app.add_middleware(
