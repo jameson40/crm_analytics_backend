@@ -68,12 +68,18 @@ def get_available_filters(file_id: str, region_col: str = Query(None)):
             deals_type=sorted(df[deal_type_col].dropna().unique().tolist()) if deal_type_col else [],
         )
 
-        print("[DEBUG] filters dict →", result.dict())
         return result
     except Exception as e:
         print(f"[FILTERS] Ошибка: {e}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
+@router.get("/regions_csv")
+def get_regions_csv(file_id: str, region_col: str = Query(...)):
+    df = get_dataframe(file_id)
+    if df is None or region_col not in df.columns:
+        return JSONResponse(content={"regions": []}, status_code=200)
+    regions = sorted(df[region_col].dropna().unique().tolist())
+    return {"regions": regions}
 
 @router.post("/analyze_csv")
 async def analyze_csv(payload: AnalyzeCsvRequest):
