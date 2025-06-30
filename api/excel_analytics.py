@@ -81,21 +81,19 @@ async def upload_excel_debug(file: UploadFile = File(...)):
             df_cleaned["__source_sheet"] = sheet
             sheet_dfs_cleaned[sheet] = df_cleaned
 
-        # Соединяем все листы, чтобы сохранить в кэш (анализ делается по одному)
         combined_df = pd.concat(sheet_dfs_cleaned.values(), ignore_index=True)
         file_id = store_dataframe(combined_df)
 
-        print(f"[UPLOAD EXCEL DEBUG] Загружено строк: {len(combined_df)}, file_id: {file_id}")
-
-        return {
-            "status": "ok",
-            "file_id": file_id,
+        debug_info = {
             "filename": file.filename,
             "content_type": file.content_type,
-            "size": file.size,
+            "size": len(await file.read()),
+            "status": "ok",
+            "file_id": file_id
         }
+        return debug_info
+
     except Exception as e:
         print("[UPLOAD EXCEL DEBUG] Ошибка:")
         traceback.print_exc()
         return JSONResponse(content={"error": str(e)}, status_code=400)
-
