@@ -37,7 +37,7 @@ def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if "год" in df.columns:
         df["год"] = pd.to_numeric(df["год"], errors="coerce").astype("Int64")
 
-    if "стоимость" in df.columns:
+    if "стоимость" in df.columns and isinstance(df["стоимость"], pd.Series):
         df["стоимость"] = pd.to_numeric(df["стоимость"], errors="coerce")
 
     if "площадь" in df.columns:

@@ -46,13 +46,18 @@ def get_excel_filters(file_id: str):
 @router.post("/analyze_excel")
 async def analyze_excel(file_id: str = Form(...), filters: str = Form("{}")):
     try:
-        df = get_dataframe(file_id)
-        if df is None:
+        sheet_dfs = get_dataframe(file_id)
+        if sheet_dfs is None:
             return JSONResponse(content={"error": "file_id не найден"}, status_code=400)
 
         filters_dict = json.loads(filters)
         print(f"[ANALYZE EXCEL] filters: {filters_dict}")
 
+        selected_sheet = filters_dict.get("sheets", [None])[0]
+        if not selected_sheet or selected_sheet not in sheet_dfs:
+            return JSONResponse(content={"error": "Указанный лист не найден"}, status_code=400)
+
+        df = sheet_dfs[selected_sheet]
         df = apply_filters(df, filters_dict)
         print(f"[ANALYZE EXCEL] строк после фильтрации: {len(df)}")
 
@@ -64,3 +69,4 @@ async def analyze_excel(file_id: str = Form(...), filters: str = Form("{}")):
         print("[ANALYZE EXCEL] Ошибка:")
         traceback.print_exc()
         return JSONResponse(content={"error": str(e)}, status_code=400)
+
