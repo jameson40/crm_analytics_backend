@@ -40,11 +40,14 @@ def get_excel_filters(file_id: str, sheet: str = ""):
     if selected_df is None:
         return JSONResponse(content={"error": f"Лист '{sheet}' не найден"}, status_code=400)
 
-    region_col = selected_df["регион"]
-    if isinstance(region_col, pd.DataFrame):
-        region_col = region_col.iloc[:, 0]
+    region_col = selected_df.get("регион", pd.Series(dtype=str))
 
-    regions = sorted(region_col.dropna().astype(str).unique().tolist())
+    if isinstance(region_col, pd.DataFrame):
+        region_col = region_col.iloc[:, 0]  # берём первый из дубликатов
+
+    region_col = region_col.dropna().astype(str)
+    regions = sorted(region_col.unique().tolist())
+
 
     return {
         "regions": regions,
