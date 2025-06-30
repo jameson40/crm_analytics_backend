@@ -4,26 +4,23 @@ from typing import Dict, Any
 def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
     filtered_df = df.copy()
 
-    if "regions" in filters and "регион" in df.columns:
+    if "regions" in filters and "регион" in filtered_df.columns:
         filtered_df = filtered_df[filtered_df["регион"].isin(filters["regions"])]
 
-    if "sheets" in filters and "__source_sheet" in df.columns:
+    if "sheets" in filters and "__source_sheet" in filtered_df.columns:
         filtered_df = filtered_df[filtered_df["__source_sheet"].isin(filters["sheets"])]
 
     start_date_str = filters.get("start_date")
-    end_date_str = filters.get("end_date")
-
-    if start_date_str:
+    if start_date_str and "дата начала строительства" in filtered_df.columns:
         start = pd.to_datetime(start_date_str)
-        df = df[df["дата начала строительства"] >= start]
+        filtered_df = filtered_df[filtered_df["дата начала строительства"] >= start]
 
-    if end_date_str:
+    end_date_str = filters.get("end_date")
+    if end_date_str and "дата завершения 2/дата по апоэ" in filtered_df.columns:
         end = pd.to_datetime(end_date_str)
-        df = df[df["дата завершения 2/дата по апоэ"] <= end]
+        filtered_df = filtered_df[filtered_df["дата завершения 2/дата по апоэ"] <= end]
 
-    filtered_df = df.loc[...].reset_index(drop=True)
-
-    return filtered_df
+    return filtered_df.reset_index(drop=True)
 
 def compute_summary(df: pd.DataFrame) -> dict:
     return {
