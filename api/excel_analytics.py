@@ -44,7 +44,7 @@ def get_excel_filters(file_id: str, sheet: str = ""):
     if isinstance(region_col, pd.DataFrame):
         region_col = region_col.iloc[:, 0]
 
-    regions = sorted(region_col.dropna().unique().tolist())
+    regions = sorted(region_col.dropna().astype(str).unique().tolist())
 
     return {
         "regions": regions,
