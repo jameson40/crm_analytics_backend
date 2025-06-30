@@ -23,7 +23,8 @@ def compute_summary(df: pd.DataFrame) -> dict:
         "avg_cost": float(df["стоимость"].mean(skipna=True)) if "стоимость" in df else 0.0,
         "by_region": df["регион"].value_counts().to_dict() if "регион" in df else {},
         "by_sheet": df["__source_sheet"].value_counts().to_dict() if "__source_sheet" in df else {},
-        "by_year": df["год"].value_counts().to_dict() if "год" in df else {},
+        "by_year": (df["дата начала строительства"].dt.year.value_counts().to_dict() if "дата начала строительства" in df else {}),
+
         "top_builders_by_cost": df.groupby("застройщик")["стоимость"].sum().nlargest(5).to_dict()
             if "застройщик" in df and "стоимость" in df else {}
     }

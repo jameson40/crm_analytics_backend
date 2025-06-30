@@ -30,18 +30,14 @@ def normalize_column(name: str) -> str:
         return "дата завершения 2/дата по апоэ"
     return name
 
-
 def find_column_by_keywords(columns, keyword: str) -> str | None:
     for col in columns:
-        if re.search(rf"\b{keyword}\b", col.lower()):
+        if re.search(rf"\\b{keyword}\\b", col.lower()):
             return col
-        
     return None
 
 def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     # Приведение колонок к нужным типам
-    
-    # Обработка дат
     if "дата начала строительства" in df.columns:
         df["дата начала строительства"] = pd.to_datetime(
             df["дата начала строительства"], errors="coerce"
@@ -73,11 +69,19 @@ def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-def parse_excel(file) -> Dict[str, pd.DataFrame]:
+ALLOWED_SHEETS = [
+    "Действующие", "Завершенные", "На модерации",
+    "Отказ и расторжение", "Отозванные"
+]
+
+def parse_excel(file) -> dict[str, pd.DataFrame]:
     xls = pd.ExcelFile(file)
     sheets_data = {}
 
     for sheet in xls.sheet_names:
+        if sheet not in ALLOWED_SHEETS:
+            continue
+
         df_raw = pd.read_excel(xls, sheet_name=sheet, header=None)
         header_idx = df_raw[df_raw.apply(
             lambda row: row.astype(str).str.contains("Застройщик", case=False).any(),
@@ -88,7 +92,6 @@ def parse_excel(file) -> Dict[str, pd.DataFrame]:
             header_row = header_idx[0]
             df = pd.read_excel(xls, sheet_name=sheet, skiprows=header_row, header=0)
             df.columns = [normalize_column(col) for col in df.columns]
-
             df["__source_sheet"] = sheet
             sheets_data[sheet] = df
 

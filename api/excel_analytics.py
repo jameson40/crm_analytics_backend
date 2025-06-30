@@ -43,7 +43,8 @@ def get_excel_filters(file_id: str, sheet: str = ""):
     return {
         "regions": sorted(selected_df["регион"].dropna().unique().tolist()) if "регион" in selected_df else [],
         "sheets": sheet_names,
-        "years": sorted(selected_df["год"].dropna().unique().tolist()) if "год" in selected_df else [],
+        "start_year": (int(selected_df["дата начала строительства"].dt.year.min()) if "дата начала строительства" in selected_df else None),
+        "end_year": (int(selected_df["дата завершения 2/дата по апоэ"].dt.year.max()) if "дата завершения 2/дата по апоэ" in selected_df else None),
     }
 
 @router.post("/analyze_excel")
