@@ -10,10 +10,18 @@ def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
     if "sheets" in filters and "__source_sheet" in df.columns:
         filtered_df = filtered_df[filtered_df["__source_sheet"].isin(filters["sheets"])]
 
-    if "years" in filters and "год" in df.columns:
-        filtered_df = filtered_df[filtered_df["год"].isin(filters["years"])]
+    start_date_str = filters.get("start_date")
+    end_date_str = filters.get("end_date")
 
-    filtered_df = filtered_df.reset_index(drop=True)
+    if start_date_str:
+        start = pd.to_datetime(start_date_str)
+        df = df[df["дата начала строительства"] >= start]
+
+    if end_date_str:
+        end = pd.to_datetime(end_date_str)
+        df = df[df["дата завершения 2/дата по апоэ"] <= end]
+
+    filtered_df = df.loc[...].reset_index(drop=True)
 
     return filtered_df
 

@@ -45,7 +45,9 @@ def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     if "дата завершения 2/дата по апоэ" in df.columns:
         df["дата завершения 2/дата по апоэ"] = pd.to_datetime(
-            df["дата завершения 2/дата по апоэ"].astype(str).str.extract(r"(\d{2}\.\d{2}\.\d{4})")[0],
+            df["дата завершения 2/дата по апоэ"]
+            .astype(str)
+            .str.extract(r"(\d{2}\.\d{2}\.\d{4})")[0],  # вытаскиваем только дату
             format="%d.%m.%Y",
             errors="coerce"
         )

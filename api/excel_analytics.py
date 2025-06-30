@@ -50,11 +50,14 @@ def get_excel_filters(file_id: str, sheet: str = ""):
 
     regions = sorted(region_col.dropna().unique().tolist())
 
+    start_date = selected_df["дата начала строительства"].min()
+    end_date = selected_df["дата завершения 2/дата по апоэ"].max()
+
     return {
         "regions": regions,
         "sheets": sheet_names,
-        "start_year": (int(selected_df["дата начала строительства"].dt.year.min()) if "дата начала строительства" in selected_df else None),
-        "end_year": (int(selected_df["дата завершения 2/дата по апоэ"].dt.year.max()) if "дата завершения 2/дата по апоэ" in selected_df else None),
+        "start_date": start_date.strftime("%Y-%m-%d") if pd.notnull(start_date) else None,
+        "end_date": end_date.strftime("%Y-%m-%d") if pd.notnull(end_date) else None,
     }
 
 @router.post("/analyze_excel")
