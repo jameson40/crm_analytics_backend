@@ -4,7 +4,7 @@ import pandas as pd
 import traceback
 import json
 
-from services.unify_excel import parse_excel_unified, clean_excel_dataframe
+from services.unify_excel import parse_excel, clean_excel_dataframe
 from usecases.excel_analyze_deals import apply_filters, compute_summary
 from services.file_cache import store_dataframe, get_dataframe
 
@@ -13,7 +13,7 @@ router = APIRouter()
 @router.post("/upload_excel")
 async def upload_excel(file: UploadFile = File(...)):
     try:
-        sheet_dfs = parse_excel_unified(file.file)
+        sheet_dfs = parse_excel(file.file)
         combined_df = pd.concat(sheet_dfs.values(), ignore_index=True)
         combined_df = clean_excel_dataframe(combined_df)
         file_id = store_dataframe(combined_df)
