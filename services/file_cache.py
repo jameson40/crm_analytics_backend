@@ -7,10 +7,15 @@ BASE_DIR = os.path.dirname(__file__)
 CACHE_DIR = os.path.abspath(os.path.join(BASE_DIR, "../cache"))
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-def store_dataframe(df: pd.DataFrame) -> str:
+def store_dataframe(df: pd.DataFrame | dict[str, pd.DataFrame]) -> str:
     file_id = str(uuid.uuid4())
     path = os.path.join(CACHE_DIR, f"{file_id}.pkl")
-    df.to_pickle(path)
+
+    if isinstance(df, pd.DataFrame) or isinstance(df, dict):
+        pd.to_pickle(df, path)
+    else:
+        raise TypeError("store_dataframe ожидает DataFrame или dict[str, DataFrame]")
+
     return file_id
 
 def get_dataframe(file_id: str, sheet: str | None = None) -> pd.DataFrame | dict[str, pd.DataFrame] | None:
@@ -20,7 +25,6 @@ def get_dataframe(file_id: str, sheet: str | None = None) -> pd.DataFrame | dict
 
     data = pd.read_pickle(path)
 
-    # если это словарь листов — вернуть нужный лист
     if sheet and isinstance(data, dict):
         return data.get(sheet)
 
