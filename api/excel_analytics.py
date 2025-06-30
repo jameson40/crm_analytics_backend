@@ -44,10 +44,11 @@ def get_excel_filters(file_id: str, sheet: str = ""):
 
     if isinstance(region_col, pd.DataFrame):
         region_col = region_col.iloc[:, 0]  # берём первый из дубликатов
-
+    
     region_col = region_col.dropna().astype(str)
-    regions = sorted(region_col.unique().tolist())
+    region_col = region_col[region_col.str.match(r"^(г\.\s?\w+|\w+ская|\w+ская область|\w+ обл\.)", case=False)]
 
+    regions = sorted(region_col.dropna().unique().tolist())
 
     return {
         "regions": regions,

@@ -13,6 +13,8 @@ def apply_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
     if "years" in filters and "год" in df.columns:
         filtered_df = filtered_df[filtered_df["год"].isin(filters["years"])]
 
+    filtered_df = filtered_df.reset_index(drop=True)
+
     return filtered_df
 
 def compute_summary(df: pd.DataFrame) -> dict:
