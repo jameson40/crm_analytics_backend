@@ -54,9 +54,9 @@ def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-def parse_excel_unified(file) -> pd.DataFrame:
+def parse_excel(file) -> dict[str, pd.DataFrame]:
     xls = pd.ExcelFile(file)
-    all_dfs = []
+    sheets_data = {}
 
     for sheet in xls.sheet_names:
         df_raw = pd.read_excel(xls, sheet_name=sheet, header=None)
@@ -70,17 +70,10 @@ def parse_excel_unified(file) -> pd.DataFrame:
             df = pd.read_excel(xls, sheet_name=sheet, skiprows=header_row, header=0)
             df.columns = [normalize_column(col) for col in df.columns]
 
-            if "застройщик" in df.columns and "стоимость" in df.columns:
-                df = df.dropna(subset=["застройщик", "стоимость"], how="all")
-
             df["__source_sheet"] = sheet
-            all_dfs.append(df)
+            sheets_data[sheet] = df
 
-    if not all_dfs:
+    if not sheets_data:
         raise ValueError("Не удалось найти таблицы сделок в Excel.")
 
-    common_cols = set.intersection(*(set(df.columns) for df in all_dfs))
-    print(f"[EXCEL] Общие колонки после нормализации: {common_cols}")
-    all_dfs = [df[list(common_cols)] for df in all_dfs]
-
-    return pd.concat(all_dfs, ignore_index=True)
+    return sheets_data

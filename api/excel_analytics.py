@@ -13,15 +13,17 @@ router = APIRouter()
 @router.post("/upload_excel")
 async def upload_excel(file: UploadFile = File(...)):
     try:
-        df = parse_excel_unified(file.file)
-        df = clean_excel_dataframe(df)
-        file_id = store_dataframe(df)
-        print(f"[UPLOAD EXCEL] Загружено строк: {len(df)}, file_id: {file_id}")
+        sheet_dfs = parse_excel_unified(file.file)
+        combined_df = pd.concat(sheet_dfs.values(), ignore_index=True)
+        combined_df = clean_excel_dataframe(combined_df)
+        file_id = store_dataframe(combined_df)
+        print(f"[UPLOAD EXCEL] Загружено строк: {len(combined_df)}, file_id: {file_id}")
         return {"status": "ok", "file_id": file_id}
     except Exception as e:
         print("[UPLOAD EXCEL] Ошибка:")
         traceback.print_exc()
         return JSONResponse(content={"error": str(e)}, status_code=400)
+
 
 @router.get("/filters_excel")
 def get_excel_filters(file_id: str):

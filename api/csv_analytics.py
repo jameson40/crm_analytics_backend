@@ -13,9 +13,9 @@ from services.file_cache import store_dataframe, get_dataframe
 router = APIRouter()
 
 @router.post("/upload_csv")
-async def upload_csv(csv_file: UploadFile = File(...)):
+async def upload_csv(file: UploadFile = File(...)):
     try:
-        content = (await csv_file.read()).decode("utf-8")
+        content = (await file.read()).decode("utf-8")
         df = pd.read_csv(
             StringIO(content),
             sep=";",
