@@ -4,7 +4,7 @@ import pandas as pd
 import traceback
 import json
 
-from services.unify_excel import parse_excel, clean_excel_dataframe
+from services.excel_parser import parse_excel, clean_excel_dataframe
 from usecases.excel_analyze_deals import apply_filters, compute_summary
 from services.file_cache import store_dataframe, get_dataframe
 
