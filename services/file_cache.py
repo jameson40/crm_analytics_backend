@@ -13,8 +13,15 @@ def store_dataframe(df: pd.DataFrame) -> str:
     df.to_pickle(path)
     return file_id
 
-def get_dataframe(file_id: str) -> pd.DataFrame | None:
+def get_dataframe(file_id: str, sheet: str | None = None) -> pd.DataFrame | dict[str, pd.DataFrame] | None:
     path = os.path.join(CACHE_DIR, f"{file_id}.pkl")
     if not os.path.exists(path):
         return None
-    return pd.read_pickle(path)
+
+    data = pd.read_pickle(path)
+
+    # если это словарь листов — вернуть нужный лист
+    if sheet and isinstance(data, dict):
+        return data.get(sheet)
+
+    return data

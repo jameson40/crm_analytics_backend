@@ -14,17 +14,14 @@ router = APIRouter()
 async def upload_excel(file: UploadFile = File(...)):
     try:
         sheet_dfs = parse_excel(file.file)
-        sheet_dfs_cleaned = {}
+        cleaned_sheets = {}
 
-        for sheet, df in sheet_dfs.items():
+        for sheet_name, df in sheet_dfs.items():
             df_cleaned = clean_excel_dataframe(df)
-            df_cleaned["__source_sheet"] = sheet
-            sheet_dfs_cleaned[sheet] = df_cleaned
+            cleaned_sheets[sheet_name] = df_cleaned # каждый лист отдельно
 
-        file_id = store_dataframe(sheet_dfs_cleaned)
-        total_rows = sum(len(df) for df in sheet_dfs_cleaned.values())
-        print(f"[UPLOAD EXCEL] Загружено строк: {total_rows}, file_id: {file_id}")
-
+        file_id = store_dataframe(cleaned_sheets)  # сохраняем как dict
+        print(f"[UPLOAD EXCEL] Загружено листов: {len(cleaned_sheets)}, file_id: {file_id}")
         return {"status": "ok", "file_id": file_id}
     except Exception as e:
         print("[UPLOAD EXCEL] Ошибка:")
@@ -32,32 +29,38 @@ async def upload_excel(file: UploadFile = File(...)):
         return JSONResponse(content={"error": str(e)}, status_code=400)
 
 @router.get("/filters_excel")
-def get_excel_filters(file_id: str):
-    df = get_dataframe(file_id)
-    if df is None:
-        return JSONResponse(content={"error": "file_id не найден"}, status_code=400)
+def get_excel_filters(file_id: str, sheet: str = ""):
+    sheets = get_dataframe(file_id)
+    if sheets is None or not isinstance(sheets, dict):
+        return JSONResponse(content={"error": "file_id не найден или неверный формат"}, status_code=400)
+
+    sheet_names = sorted(sheets.keys())
+    selected_df = sheets.get(sheet_names[0]) if not sheet else sheets.get(sheet)
+
+    if selected_df is None:
+        return JSONResponse(content={"error": f"Лист '{sheet}' не найден"}, status_code=400)
 
     return {
-        "regions": sorted(df["регион"].dropna().unique().tolist()) if "регион" in df else [],
-        "sheets": sorted(df["__source_sheet"].dropna().unique().tolist()) if "__source_sheet" in df else [],
-        "years": sorted(df["год"].dropna().unique().tolist()) if "год" in df else [],
+        "regions": sorted(selected_df["регион"].dropna().unique().tolist()) if "регион" in selected_df else [],
+        "sheets": sheet_names,
+        "years": sorted(selected_df["год"].dropna().unique().tolist()) if "год" in selected_df else [],
     }
 
 @router.post("/analyze_excel")
 async def analyze_excel(file_id: str = Form(...), filters: str = Form("{}")):
     try:
-        sheet_dfs = get_dataframe(file_id)
-        if sheet_dfs is None:
-            return JSONResponse(content={"error": "file_id не найден"}, status_code=400)
+        sheets = get_dataframe(file_id)
+        if sheets is None or not isinstance(sheets, dict):
+            return JSONResponse(content={"error": "file_id не найден или неверный формат"}, status_code=400)
 
         filters_dict = json.loads(filters)
         print(f"[ANALYZE EXCEL] filters: {filters_dict}")
 
-        selected_sheet = filters_dict.get("sheets", [None])[0]
-        if not selected_sheet or selected_sheet not in sheet_dfs:
-            return JSONResponse(content={"error": "Указанный лист не найден"}, status_code=400)
+        sheet_name = filters_dict.get("sheet")
+        if not sheet_name or sheet_name not in sheets:
+            return JSONResponse(content={"error": "Укажите корректный лист Excel"}, status_code=400)
 
-        df = sheet_dfs[selected_sheet]
+        df = sheets[sheet_name]
         df = apply_filters(df, filters_dict)
         print(f"[ANALYZE EXCEL] строк после фильтрации: {len(df)}")
 
@@ -67,33 +70,5 @@ async def analyze_excel(file_id: str = Form(...), filters: str = Form("{}")):
 
     except Exception as e:
         print("[ANALYZE EXCEL] Ошибка:")
-        traceback.print_exc()
-        return JSONResponse(content={"error": str(e)}, status_code=400)
-
-@router.post("/upload_excel_debug")
-async def upload_excel_debug(file: UploadFile = File(...)):
-    try:
-        sheet_dfs = parse_excel(file.file)
-        sheet_dfs_cleaned = {}
-
-        for sheet, df in sheet_dfs.items():
-            df_cleaned = clean_excel_dataframe(df)
-            df_cleaned["__source_sheet"] = sheet
-            sheet_dfs_cleaned[sheet] = df_cleaned
-
-        combined_df = pd.concat(sheet_dfs_cleaned.values(), ignore_index=True)
-        file_id = store_dataframe(combined_df)
-
-        debug_info = {
-            "filename": file.filename,
-            "content_type": file.content_type,
-            "size": len(await file.read()),
-            "status": "ok",
-            "file_id": file_id
-        }
-        return debug_info
-
-    except Exception as e:
-        print("[UPLOAD EXCEL DEBUG] Ошибка:")
         traceback.print_exc()
         return JSONResponse(content={"error": str(e)}, status_code=400)
