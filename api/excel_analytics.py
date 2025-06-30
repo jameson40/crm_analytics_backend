@@ -70,3 +70,23 @@ async def analyze_excel(file_id: str = Form(...), filters: str = Form("{}")):
         traceback.print_exc()
         return JSONResponse(content={"error": str(e)}, status_code=400)
 
+@router.post("/upload_excel_debug")
+async def upload_excel_debug(file: UploadFile = File(...)):
+    try:
+        print("[DEBUG EXCEL] Файл получен:")
+        print(f"  filename: {file.filename}")
+        print(f"  content_type: {file.content_type}")
+        content = await file.read()
+        print(f"  size: {len(content)} bytes")
+
+        return JSONResponse(content={
+            "status": "ok",
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "size": len(content)
+        }, status_code=200)
+
+    except Exception as e:
+        print("[DEBUG EXCEL] Ошибка:")
+        traceback.print_exc()
+        return JSONResponse(content={"error": str(e)}, status_code=400)
