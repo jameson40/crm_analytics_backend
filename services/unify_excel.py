@@ -11,11 +11,12 @@ def normalize_column(name: str) -> str:
         return ""
     name = name.strip().lower().replace("\n", " ")
     name = re.sub(r"[\s\-]+", " ", name)
+
     if "стоимость" in name:
         return "стоимость"
     if "площадь" in name:
         return "площадь"
-    if "регион" in name:
+    if "регион" in name or "область" in name:
         return "регион"
     if "год" in name:
         return "год"
@@ -23,7 +24,12 @@ def normalize_column(name: str) -> str:
         return "бин"
     if "застройщик" in name:
         return "застройщик"
+    if "дата начала строительства" in name:
+        return "дата начала строительства"
+    if "дата завершения" in name and "апоэ" in name:
+        return "дата завершения 2/дата по апоэ"
     return name
+
 
 def find_column_by_keywords(columns, keyword: str) -> str | None:
     for col in columns:
@@ -34,16 +40,27 @@ def find_column_by_keywords(columns, keyword: str) -> str | None:
 
 def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     # Приведение колонок к нужным типам
-    if "год" in df.columns:
-        df["год"] = pd.to_numeric(df["год"], errors="coerce").astype("Int64")
+    
+    # Обработка дат
+    if "дата начала строительства" in df.columns:
+        df["дата начала строительства"] = pd.to_datetime(
+            df["дата начала строительства"], errors="coerce"
+        )
+
+    if "дата завершения 2/дата по апоэ" in df.columns:
+        df["дата завершения 2/дата по апоэ"] = pd.to_datetime(
+            df["дата завершения 2/дата по апоэ"].astype(str).str.extract(r"(\d{2}\.\d{2}\.\d{4})")[0],
+            format="%d.%m.%Y",
+            errors="coerce"
+        )
 
     if "стоимость" in df.columns and isinstance(df["стоимость"], pd.Series):
         df["стоимость"] = pd.to_numeric(df["стоимость"], errors="coerce")
 
-    if "площадь" in df.columns:
+    if "площадь" in df.columns and isinstance(df["площадь"], pd.Series):
         df["площадь"] = pd.to_numeric(df["площадь"], errors="coerce")
 
-    if "регион" in df.columns:
+    if "регион" in df.columns and isinstance(df["регион"], pd.Series):
         df["регион"] = df["регион"].astype(str).str.strip()
 
     # Безопасное удаление строк без застройщика и стоимости
