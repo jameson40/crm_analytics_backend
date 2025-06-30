@@ -1,3 +1,4 @@
+from typing import Dict
 import pandas as pd
 import re
 
@@ -26,8 +27,9 @@ def normalize_column(name: str) -> str:
 
 def find_column_by_keywords(columns, keyword: str) -> str | None:
     for col in columns:
-        if keyword in col.lower():
+        if re.search(rf"\b{keyword}\b", col.lower()):
             return col
+        
     return None
 
 def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -54,7 +56,7 @@ def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-def parse_excel(file) -> dict[str, pd.DataFrame]:
+def parse_excel(file) -> Dict[str, pd.DataFrame]:
     xls = pd.ExcelFile(file)
     sheets_data = {}
 
