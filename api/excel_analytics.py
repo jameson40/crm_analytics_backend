@@ -40,8 +40,10 @@ def get_excel_filters(file_id: str, sheet: str = ""):
     if selected_df is None:
         return JSONResponse(content={"error": f"Лист '{sheet}' не найден"}, status_code=400)
 
+    regions = sorted(selected_df.get("регион", pd.Series(dtype=str)).dropna().unique().tolist())
+
     return {
-        "regions": sorted(selected_df["регион"].dropna().unique().tolist()) if "регион" in selected_df else [],
+        "regions": regions,
         "sheets": sheet_names,
         "start_year": (int(selected_df["дата начала строительства"].dt.year.min()) if "дата начала строительства" in selected_df else None),
         "end_year": (int(selected_df["дата завершения 2/дата по апоэ"].dt.year.max()) if "дата завершения 2/дата по апоэ" in selected_df else None),
