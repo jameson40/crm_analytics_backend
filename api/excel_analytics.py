@@ -40,7 +40,11 @@ def get_excel_filters(file_id: str, sheet: str = ""):
     if selected_df is None:
         return JSONResponse(content={"error": f"Лист '{sheet}' не найден"}, status_code=400)
 
-    regions = sorted(selected_df["регион"].dropna().unique().tolist()) if "регион" in selected_df else []
+    region_col = selected_df["регион"]
+    if isinstance(region_col, pd.DataFrame):
+        region_col = region_col.iloc[:, 0]
+
+    regions = sorted(region_col.dropna().unique().tolist())
 
     return {
         "regions": regions,
