@@ -73,20 +73,29 @@ async def analyze_excel(file_id: str = Form(...), filters: str = Form("{}")):
 @router.post("/upload_excel_debug")
 async def upload_excel_debug(file: UploadFile = File(...)):
     try:
-        print("[DEBUG EXCEL] Файл получен:")
-        print(f"  filename: {file.filename}")
-        print(f"  content_type: {file.content_type}")
-        content = await file.read()
-        print(f"  size: {len(content)} bytes")
+        sheet_dfs = parse_excel(file.file)
+        sheet_dfs_cleaned = {}
 
-        return JSONResponse(content={
+        for sheet, df in sheet_dfs.items():
+            df_cleaned = clean_excel_dataframe(df)
+            df_cleaned["__source_sheet"] = sheet
+            sheet_dfs_cleaned[sheet] = df_cleaned
+
+        # Соединяем все листы, чтобы сохранить в кэш (анализ делается по одному)
+        combined_df = pd.concat(sheet_dfs_cleaned.values(), ignore_index=True)
+        file_id = store_dataframe(combined_df)
+
+        print(f"[UPLOAD EXCEL DEBUG] Загружено строк: {len(combined_df)}, file_id: {file_id}")
+
+        return {
             "status": "ok",
+            "file_id": file_id,
             "filename": file.filename,
             "content_type": file.content_type,
-            "size": len(content)
-        }, status_code=200)
-
+            "size": file.size,
+        }
     except Exception as e:
-        print("[DEBUG EXCEL] Ошибка:")
+        print("[UPLOAD EXCEL DEBUG] Ошибка:")
         traceback.print_exc()
         return JSONResponse(content={"error": str(e)}, status_code=400)
+
