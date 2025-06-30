@@ -65,6 +65,8 @@ def find_column_by_keywords(columns, keyword: str) -> str | None:
 def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if "дата начала строительства" in df.columns:
         df["дата начала строительства"] = pd.to_datetime(df["дата начала строительства"], errors="coerce")
+    else:
+        print("Колонка 'дата начала строительства' не найдена в Excel!")
 
     if "дата завершения 2/дата по апоэ" in df.columns:
         df["дата завершения 2/дата по апоэ"] = pd.to_datetime(
@@ -72,15 +74,23 @@ def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             format="%d.%m.%Y",
             errors="coerce"
         )
+    else: 
+        print("Колонка 'дата завершения 2/дата по апоэ' не найдена в Excel!")
 
-    if "стоимость" in df.columns:
-        df["стоимость"] = pd.to_numeric(df["стоимость"], errors="coerce")
+    if "Стоимость, тенге" in df.columns:
+        df["Стоимость, тенге"] = pd.to_numeric(df["Стоимость, тенге"], errors="coerce")
+    else:
+        print("Колонка 'Стоимость, тенге' не найдена в Excel!")
 
     if "площадь" in df.columns:
         df["площадь"] = pd.to_numeric(df["площадь"], errors="coerce")
+    else:
+        print("Колонка 'площадь' не найдена в Excel!")
 
     if "регион" in df.columns:
         df["регион"] = df["регион"].astype(str).str.strip()
+    else:
+        print("Колонка 'регион' не найдена в Excel!")
 
     builder_col = find_column_by_keywords(df.columns, "застройщик")
     cost_col = find_column_by_keywords(df.columns, "стоимость")
