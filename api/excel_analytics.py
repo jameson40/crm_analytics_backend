@@ -1,11 +1,17 @@
 from io import BytesIO
-from fastapi import APIRouter, UploadFile, Form
-from typing import List, Optional
-from pydantic import BaseModel
+from fastapi import APIRouter, UploadFile
+from typing import List
 import pandas as pd
 
-from services.excel_parser import get_valid_excel_sheets, parse_excel_sheet_with_filters, read_excel_sheet
-from services.file_cache import get_raw_excel_bytes, store_dataframe, get_dataframe
+from services.excel_parser import (
+    get_valid_excel_sheets,
+    parse_excel_sheet_with_filters,
+    read_excel_sheet
+)
+from services.file_cache import (
+    store_raw_excel,
+    get_raw_excel_bytes
+)
 from models.models import ExcelFilterRequest, AnalyzeExcelRequest
 
 router = APIRouter()
@@ -13,14 +19,11 @@ router = APIRouter()
 @router.post("/list_excel_sheets")
 def list_excel_sheets(file: UploadFile):
     content = file.file.read()
+    file_id = store_raw_excel(content)
+
     buffer = BytesIO(content)
-
-    excel_data = pd.read_excel(buffer, sheet_name=None)
-    file_id = store_dataframe(excel_data)
-
-    # нужно создать новый BytesIO, т.к. предыдущий уже прочитан
-    buffer_for_listing = BytesIO(content)
-    sheet_names = get_valid_excel_sheets(pd.ExcelFile(buffer_for_listing))
+    excel = pd.ExcelFile(buffer)
+    sheet_names = get_valid_excel_sheets(excel)
 
     return {
         "file_id": file_id,
@@ -34,11 +37,6 @@ def get_excel_filters(req: ExcelFilterRequest):
 
     if sheet_df.empty:
         return {"error": "Пустой лист"}
-
-    # дальше — формирование фильтров...
-
-    print("SHEET:", req.sheet_name)
-    print("COLUMNS:", sheet_df.columns.tolist())
 
     filters = {}
 
@@ -102,15 +100,13 @@ def get_excel_filters(req: ExcelFilterRequest):
 
     return filters
 
-
 @router.post("/analyze_excel")
 def analyze_excel(req: AnalyzeExcelRequest):
-    df = get_dataframe(req.file_id)
-    df_sheet = pd.read_excel(df, sheet_name=req.sheet_name)
+    buffer = get_raw_excel_bytes(req.file_id)
+    df_sheet = read_excel_sheet(buffer, req.sheet_name)
 
     df_filtered = parse_excel_sheet_with_filters(df_sheet, req.sheet_name, req.filters)
-    
-    # Возвращаем базовую аналитику (заглушка)
+
     return {
         "rows_total": len(df_sheet),
         "rows_filtered": len(df_filtered),
