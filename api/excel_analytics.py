@@ -4,8 +4,8 @@ from typing import List, Optional
 from pydantic import BaseModel
 import pandas as pd
 
-from services.excel_parser import load_excel_file, get_valid_excel_sheets, parse_excel_sheet_with_filters
-from services.file_cache import store_dataframe, get_dataframe
+from services.excel_parser import get_valid_excel_sheets, parse_excel_sheet_with_filters, read_excel_sheet
+from services.file_cache import get_raw_excel_bytes, store_dataframe, get_dataframe
 from models.models import ExcelFilterRequest, AnalyzeExcelRequest
 
 router = APIRouter()
@@ -29,10 +29,13 @@ def list_excel_sheets(file: UploadFile):
 
 @router.post("/get_excel_filters")
 def get_excel_filters(req: ExcelFilterRequest):
-    sheet_df = get_dataframe(req.file_id, sheet=req.sheet_name)
+    buffer = get_raw_excel_bytes(req.file_id)
+    sheet_df = read_excel_sheet(buffer, req.sheet_name)
 
-    if sheet_df is None or sheet_df.empty:
-        return {"error": "Лист не найден или пуст"}
+    if sheet_df.empty:
+        return {"error": "Пустой лист"}
+
+    # дальше — формирование фильтров...
 
     print("SHEET:", req.sheet_name)
     print("COLUMNS:", sheet_df.columns.tolist())
@@ -40,7 +43,7 @@ def get_excel_filters(req: ExcelFilterRequest):
     filters = {}
 
     # Регион или Область
-    if req.sheet_name in ["Действующие", "Завершенные", "Отказ и расторжение"]:
+    if req.sheet_name in ["Действующие", "Завершенные"]:
         region_col = "Регион"
     elif req.sheet_name in ["На модерации", "Отозванные"]:
         region_col = "Область"

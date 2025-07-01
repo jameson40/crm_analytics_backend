@@ -1,5 +1,10 @@
+import os
+import uuid
 import pandas as pd
-from typing import List, Optional
+from typing import List
+from io import BytesIO
+
+from services.file_cache import CACHE_DIR
 
 EXCLUDED_SHEETS = ["На рассмотрении"]
 
@@ -7,7 +12,6 @@ VALID_SHEETS = [
     "Действующие",
     "Завершенные",
     "На модерации",
-    "Отказ и расторжение",
     "Отозванные"
 ]
 
@@ -26,7 +30,7 @@ def parse_excel_sheet_with_filters(
 
     # Регион/Область
     region_col = None
-    if sheet_name in ["Действующие", "Завершенные", "Отказ и расторжение"]:
+    if sheet_name in ["Действующие", "Завершенные"]:
         region_col = "Регион"
     elif sheet_name in ["На модерации", "Отозванные"]:
         region_col = "Область"
@@ -62,4 +66,17 @@ def parse_excel_sheet_with_filters(
 
         df = df[(df[date_start_col] >= start) & (df[date_end_col] <= end)]
 
+    return df
+
+def read_excel_sheet(buffer: bytes, sheet_name: str) -> pd.DataFrame:
+    header_map = {
+        "Действующие": 6,
+        "Завершенные": 2,
+        "На модерации": 1,
+        "Отозванные": 1
+    }
+    header_row = header_map.get(sheet_name, 0)
+
+    excel = pd.ExcelFile(BytesIO(buffer))
+    df = pd.read_excel(excel, sheet_name=sheet_name, header=header_row)
     return df
