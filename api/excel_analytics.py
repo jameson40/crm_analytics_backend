@@ -4,20 +4,20 @@ from pydantic import BaseModel
 import pandas as pd
 
 from services.excel_parser import load_excel_file, get_valid_excel_sheets, parse_excel_sheet_with_filters
-from services.file_cache import save_file_to_cache, load_file_from_cache
+from services.file_cache import store_dataframe, get_dataframe
 from models.models import ExcelFilterRequest, AnalyzeExcelRequest
 
 router = APIRouter()
 
 @router.post("/list_excel_sheets", response_model=List[str])
 def list_excel_sheets(file: UploadFile):
-    file_id = save_file_to_cache(file)
+    file_id = store_dataframe(file)
     excel = load_excel_file(file_id)
     return get_valid_excel_sheets(excel)
 
 @router.post("/get_excel_filters")
 def get_excel_filters(req: ExcelFilterRequest):
-    df = load_file_from_cache(req.file_id)
+    df = get_dataframe(req.file_id)
     sheet_df = pd.read_excel(df, sheet_name=req.sheet_name, nrows=100)
 
     filters = {}
@@ -77,7 +77,7 @@ def get_excel_filters(req: ExcelFilterRequest):
 
 @router.post("/analyze_excel")
 def analyze_excel(req: AnalyzeExcelRequest):
-    df = load_file_from_cache(req.file_id)
+    df = get_dataframe(req.file_id)
     df_sheet = pd.read_excel(df, sheet_name=req.sheet_name)
 
     df_filtered = parse_excel_sheet_with_filters(df_sheet, req.sheet_name, req.filters)
