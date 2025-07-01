@@ -49,10 +49,10 @@ def get_excel_filters(req: ExcelFilterRequest):
         region_col = None
 
     if region_col and region_col in sheet_df.columns:
-        values = sheet_df[region_col].dropna().unique().tolist()
+        raw_values = sheet_df[region_col].dropna().unique().tolist()
         filters["region"] = {
             "type": "select",
-            "values": sorted(values)
+            "values": sorted([str(v) for v in raw_values])
         }
 
     # Застройщик
