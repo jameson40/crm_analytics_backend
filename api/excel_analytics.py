@@ -29,8 +29,7 @@ def list_excel_sheets(file: UploadFile):
 
 @router.post("/get_excel_filters")
 def get_excel_filters(req: ExcelFilterRequest):
-    df = get_dataframe(req.file_id)
-    sheet_df = pd.read_excel(df, sheet_name=req.sheet_name, nrows=100)
+    sheet_df = get_dataframe(req.file_id, sheet=req.sheet_name)
 
     filters = {}
 
@@ -43,16 +42,18 @@ def get_excel_filters(req: ExcelFilterRequest):
         region_col = None
 
     if region_col and region_col in sheet_df.columns:
+        values = sheet_df[region_col].dropna().unique().tolist()
         filters["region"] = {
             "type": "select",
-            "values": sorted(sheet_df[region_col].dropna().unique().tolist())
+            "values": sorted(values)
         }
 
     # Застройщик
     if "Застройщик" in sheet_df.columns:
+        devs = sheet_df["Застройщик"].dropna().unique().tolist()
         filters["developer"] = {
             "type": "select",
-            "values": sorted(sheet_df["Застройщик"].dropna().unique().tolist())
+            "values": sorted(devs)
         }
 
     # Площадь
@@ -64,28 +65,34 @@ def get_excel_filters(req: ExcelFilterRequest):
 
     if area_col and area_col in sheet_df.columns:
         area_vals = pd.to_numeric(sheet_df[area_col], errors="coerce").dropna()
-        filters["area"] = {
-            "type": "range",
-            "min": float(area_vals.min()),
-            "max": float(area_vals.max())
-        }
+        if not area_vals.empty:
+            filters["area"] = {
+                "type": "range",
+                "min": float(area_vals.min()),
+                "max": float(area_vals.max())
+            }
 
     # Период (только для Действующие и Завершённые)
     if req.sheet_name in ["Действующие", "Завершенные"]:
         date_start_col = "Дата начала строительства"
-        date_end_col = "Дата завершения 2"  # можно расширить на "Дата по АПОЭ"
+        date_end_col = "Дата завершения 2"
 
         if date_start_col in sheet_df.columns and date_end_col in sheet_df.columns:
             date_start = pd.to_datetime(sheet_df[date_start_col], errors="coerce")
             date_end = pd.to_datetime(sheet_df[date_end_col], errors="coerce")
 
-            filters["period"] = {
-                "type": "date_range",
-                "min": str(date_start.min().date()),
-                "max": str(date_end.max().date())
-            }
+            valid_start = date_start.dropna()
+            valid_end = date_end.dropna()
+
+            if not valid_start.empty and not valid_end.empty:
+                filters["period"] = {
+                    "type": "date_range",
+                    "min": str(valid_start.min().date()),
+                    "max": str(valid_end.max().date())
+                }
 
     return filters
+
 
 @router.post("/analyze_excel")
 def analyze_excel(req: AnalyzeExcelRequest):
