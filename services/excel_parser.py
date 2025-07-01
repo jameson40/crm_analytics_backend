@@ -1,102 +1,65 @@
-from typing import Dict
 import pandas as pd
-import re
+from typing import List, Optional
 
-ALLOWED_SHEETS = [
-    "Действующие", "Завершенные", "Отказ и расторжение", "Отозванные"
+EXCLUDED_SHEETS = ["На рассмотрении"]
+
+VALID_SHEETS = [
+    "Действующие",
+    "Завершенные",
+    "На модерации",
+    "Отказ и расторжение",
+    "Отозванные"
 ]
 
-def normalize_column(name: str) -> str:
-    if not isinstance(name, str):
-        return ""
-    name = name.strip().lower().replace("\n", " ")
-    name = re.sub(r"[\s\-]+", " ", name)
+def load_excel_file(file_path: str) -> pd.ExcelFile:
+    return pd.ExcelFile(file_path)
 
-    if "стоимость" in name:
-        return "стоимость"
-    if "площадь" in name:
-        return "площадь"
-    if "регион" in name or "область" in name:
-        return "регион"
-    if "год" in name:
-        return "год"
-    if "бин" in name:
-        return "бин"
-    if "застройщик" in name:
-        return "застройщик"
-    if "дата начала строительства" in name:
-        return "дата начала строительства"
-    if "дата завершения" in name and "апоэ" in name:
-        return "дата завершения 2/дата по апоэ"
-    return name
+def get_valid_excel_sheets(excel: pd.ExcelFile) -> List[str]:
+    return [s for s in excel.sheet_names if s in VALID_SHEETS and s not in EXCLUDED_SHEETS]
 
-def parse_excel(file) -> dict[str, pd.DataFrame]:
-    xls = pd.ExcelFile(file)
-    sheets_data = {}
+def parse_excel_sheet_with_filters(
+    df: pd.DataFrame,
+    sheet_name: str,
+    filters: dict
+) -> pd.DataFrame:
+    df = df.copy()
 
-    for sheet in xls.sheet_names:
-        if sheet not in ALLOWED_SHEETS:
-            continue
+    # Регион/Область
+    region_col = None
+    if sheet_name in ["Действующие", "Завершенные", "Отказ и расторжение"]:
+        region_col = "Регион"
+    elif sheet_name in ["На модерации", "Отозванные"]:
+        region_col = "Область"
 
-        df_raw = pd.read_excel(xls, sheet_name=sheet, header=None)
-        header_idx = df_raw[df_raw.apply(
-            lambda row: row.astype(str).str.contains("Застройщик", case=False).any(),
-            axis=1
-        )].index
+    if region_col and filters.get("region"):
+        df = df[df[region_col].isin(filters["region"])]
 
-        if not header_idx.empty:
-            header_row = header_idx[0]
-            df = pd.read_excel(xls, sheet_name=sheet, skiprows=header_row, header=0)
-            df.columns = [normalize_column(col) for col in df.columns]
-            df["__source_sheet"] = sheet
-            sheets_data[sheet] = df
+    # Застройщик
+    if "developer" in filters:
+        df = df[df["Застройщик"].isin(filters["developer"])]
 
-    if not sheets_data:
-        raise ValueError("Не удалось найти таблицы сделок в Excel.")
+    # Площадь
+    area_col = None
+    if sheet_name in ["Действующие", "Завершенные"]:
+        area_col = "Площадь, кв.м по Проекту"
+    elif sheet_name in ["На модерации", "Отозванные"]:
+        area_col = "Площадь"
 
-    return sheets_data
+    if area_col and area_col in df.columns and "area" in filters:
+        area_col_data = pd.to_numeric(df[area_col], errors="coerce")
+        df = df[(area_col_data >= filters["area"]["min"]) & (area_col_data <= filters["area"]["max"])]
 
-def find_column_by_keywords(columns, keyword: str) -> str | None:
-    for col in columns:
-        if re.search(rf"\b{keyword}\b", col.lower()):
-            return col
-    return None
+    # Период
+    if sheet_name in ["Действующие", "Завершенные"] and "start_date" in filters and "end_date" in filters:
+        date_start_col = "Дата начала строительства"
+        date_end_col = "Дата завершения 2"
 
-def clean_excel_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    if "дата начала строительства" in df.columns:
-        df["дата начала строительства"] = pd.to_datetime(df["дата начала строительства"], errors="coerce")
-    else:
-        print("Колонка 'дата начала строительства' не найдена в Excel!")
+        df[date_start_col] = pd.to_datetime(df[date_start_col], errors="coerce")
+        df[date_end_col] = pd.to_datetime(df[date_end_col], errors="coerce")
 
-    if "дата завершения 2/дата по апоэ" in df.columns:
-        df["дата завершения 2/дата по апоэ"] = pd.to_datetime(
-            df["дата завершения 2/дата по апоэ"].astype(str).str.extract(r"(\d{2}\.\d{2}\.\d{4})")[0],
-            format="%d.%m.%Y",
-            errors="coerce"
-        )
-    else: 
-        print("Колонка 'дата завершения 2/дата по апоэ' не найдена в Excel!")
+        start = pd.to_datetime(filters["start_date"])
+        end = pd.to_datetime(filters["end_date"])
 
-    if "Стоимость, тенге" in df.columns:
-        df["Стоимость, тенге"] = pd.to_numeric(df["Стоимость, тенге"], errors="coerce")
-    else:
-        print("Колонка 'Стоимость, тенге' не найдена в Excel!")
-
-    if "площадь" in df.columns:
-        df["площадь"] = pd.to_numeric(df["площадь"], errors="coerce")
-    else:
-        print("Колонка 'площадь' не найдена в Excel!")
-
-    if "регион" in df.columns:
-        df["регион"] = df["регион"].astype(str).str.strip()
-    else:
-        print("Колонка 'регион' не найдена в Excel!")
-
-    builder_col = find_column_by_keywords(df.columns, "застройщик")
-    cost_col = find_column_by_keywords(df.columns, "стоимость")
-
-    cols_to_check = [col for col in [builder_col, cost_col] if col]
-    if cols_to_check:
-        df = df.dropna(subset=cols_to_check, how="all")
+        df = df[(df[date_start_col] >= start) & (df[date_end_col] <= end)]
 
     return df

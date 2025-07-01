@@ -1,81 +1,90 @@
-from fastapi import APIRouter, UploadFile, File, Form, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, UploadFile, Form
+from typing import List, Optional
+from pydantic import BaseModel
 import pandas as pd
-import traceback
-import json
 
-from services.excel_parser import parse_excel, clean_excel_dataframe
-from usecases.excel_analyze_deals import apply_filters, compute_summary
-from services.file_cache import store_dataframe, get_dataframe
+from services.excel_parser import load_excel_file, get_valid_excel_sheets, parse_excel_sheet_with_filters
+from services.file_cache import save_file_to_cache, load_file_from_cache
+from models.models import ExcelFilterRequest, AnalyzeExcelRequest
 
 router = APIRouter()
 
-@router.post("/upload_excel")
-async def upload_excel(file: UploadFile = File(...)):
-    try:
-        sheet_dfs = parse_excel(file.file)
-        cleaned_sheets = {}
+@router.post("/list_excel_sheets", response_model=List[str])
+def list_excel_sheets(file: UploadFile):
+    file_id = save_file_to_cache(file)
+    excel = load_excel_file(file_id)
+    return get_valid_excel_sheets(excel)
 
-        for sheet_name, df in sheet_dfs.items():
-            df_cleaned = clean_excel_dataframe(df)
-            cleaned_sheets[sheet_name] = df_cleaned  # сохраняем по листам
+@router.post("/get_excel_filters")
+def get_excel_filters(req: ExcelFilterRequest):
+    df = load_file_from_cache(req.file_id)
+    sheet_df = pd.read_excel(df, sheet_name=req.sheet_name, nrows=100)
 
-        file_id = store_dataframe(cleaned_sheets)
-        print(f"[UPLOAD EXCEL] Загружено листов: {len(cleaned_sheets)}, file_id: {file_id}")
-        return {"status": "ok", "file_id": file_id}
-    except Exception as e:
-        print("[UPLOAD EXCEL] Ошибка:")
-        traceback.print_exc()
-        return JSONResponse(content={"error": str(e)}, status_code=400)
+    filters = {}
 
-@router.get("/filters_excel")
-def get_excel_filters(file_id: str = Query(...), sheet: str = Query(...)):
-    sheets = get_dataframe(file_id)
-    if sheets is None or not isinstance(sheets, dict):
-        return JSONResponse(content={"error": "file_id не найден или неверный формат"}, status_code=400)
+    # Регион или Область
+    if req.sheet_name in ["Действующие", "Завершенные", "Отказ и расторжение"]:
+        region_col = "Регион"
+    elif req.sheet_name in ["На модерации", "Отозванные"]:
+        region_col = "Область"
+    else:
+        region_col = None
 
-    df = sheets.get(sheet)
-    if df is None:
-        return JSONResponse(content={"error": f"Лист '{sheet}' не найден"}, status_code=400)
+    if region_col and region_col in sheet_df.columns:
+        filters["region"] = {
+            "type": "select",
+            "values": sorted(sheet_df[region_col].dropna().unique().tolist())
+        }
 
-    filters = {
-        "regions": sorted(df["регион"].dropna().unique().tolist()) if "регион" in df else [],
-        "sheets": sorted(sheets.keys()),
-    }
+    # Застройщик
+    if "Застройщик" in sheet_df.columns:
+        filters["developer"] = {
+            "type": "select",
+            "values": sorted(sheet_df["Застройщик"].dropna().unique().tolist())
+        }
 
-    # определяем даты автоматически
-    if "дата начала строительства" in df:
-        filters["min_start_date"] = str(df["дата начала строительства"].min().date())
-        filters["max_start_date"] = str(df["дата начала строительства"].max().date())
+    # Площадь
+    area_col = None
+    if req.sheet_name in ["Действующие", "Завершенные"]:
+        area_col = "Площадь, кв.м по Проекту"
+    elif req.sheet_name in ["На модерации", "Отозванные"]:
+        area_col = "Площадь"
 
-    if "дата завершения 2/дата по апоэ" in df:
-        filters["min_end_date"] = str(df["дата завершения 2/дата по апоэ"].min().date())
-        filters["max_end_date"] = str(df["дата завершения 2/дата по апоэ"].max().date())
+    if area_col and area_col in sheet_df.columns:
+        area_vals = pd.to_numeric(sheet_df[area_col], errors="coerce").dropna()
+        filters["area"] = {
+            "type": "range",
+            "min": float(area_vals.min()),
+            "max": float(area_vals.max())
+        }
+
+    # Период (только для Действующие и Завершённые)
+    if req.sheet_name in ["Действующие", "Завершенные"]:
+        date_start_col = "Дата начала строительства"
+        date_end_col = "Дата завершения 2"  # можно расширить на "Дата по АПОЭ"
+
+        if date_start_col in sheet_df.columns and date_end_col in sheet_df.columns:
+            date_start = pd.to_datetime(sheet_df[date_start_col], errors="coerce")
+            date_end = pd.to_datetime(sheet_df[date_end_col], errors="coerce")
+
+            filters["period"] = {
+                "type": "date_range",
+                "min": str(date_start.min().date()),
+                "max": str(date_end.max().date())
+            }
 
     return filters
 
 @router.post("/analyze_excel")
-async def analyze_excel(file_id: str = Form(...), filters: str = Form("{}")):
-    try:
-        sheets = get_dataframe(file_id)
-        if sheets is None or not isinstance(sheets, dict):
-            return JSONResponse(content={"error": "file_id не найден или неверный формат"}, status_code=400)
+def analyze_excel(req: AnalyzeExcelRequest):
+    df = load_file_from_cache(req.file_id)
+    df_sheet = pd.read_excel(df, sheet_name=req.sheet_name)
 
-        filters_dict = json.loads(filters)
-        print(f"[ANALYZE EXCEL] filters: {filters_dict}")
-
-        sheet_name = filters_dict.get("sheet")
-        if not sheet_name or sheet_name not in sheets:
-            return JSONResponse(content={"error": "Укажите корректный лист Excel"}, status_code=400)
-
-        df = sheets[sheet_name]
-        df = apply_filters(df, filters_dict)
-        print(f"[ANALYZE EXCEL] строк после фильтрации: {len(df)}")
-
-        summary = compute_summary(df)
-        return JSONResponse(content=json.loads(json.dumps(summary, allow_nan=False)), status_code=200)
-
-    except Exception as e:
-        print("[ANALYZE EXCEL] Ошибка:")
-        traceback.print_exc()
-        return JSONResponse(content={"error": str(e)}, status_code=400)
+    df_filtered = parse_excel_sheet_with_filters(df_sheet, req.sheet_name, req.filters)
+    
+    # Возвращаем базовую аналитику (заглушка)
+    return {
+        "rows_total": len(df_sheet),
+        "rows_filtered": len(df_filtered),
+        "summary": df_filtered.describe(include="all").to_dict()
+    }
