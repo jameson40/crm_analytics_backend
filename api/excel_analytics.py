@@ -1,3 +1,4 @@
+from io import BytesIO
 from fastapi import APIRouter, UploadFile, Form
 from typing import List, Optional
 from pydantic import BaseModel
@@ -9,11 +10,22 @@ from models.models import ExcelFilterRequest, AnalyzeExcelRequest
 
 router = APIRouter()
 
-@router.post("/list_excel_sheets", response_model=List[str])
+@router.post("/list_excel_sheets")
 def list_excel_sheets(file: UploadFile):
-    file_id = store_dataframe(file)
-    excel = load_excel_file(file_id)
-    return get_valid_excel_sheets(excel)
+    content = file.file.read()
+    buffer = BytesIO(content)
+
+    excel_data = pd.read_excel(buffer, sheet_name=None)
+    file_id = store_dataframe(excel_data)
+
+    # нужно создать новый BytesIO, т.к. предыдущий уже прочитан
+    buffer_for_listing = BytesIO(content)
+    sheet_names = get_valid_excel_sheets(pd.ExcelFile(buffer_for_listing))
+
+    return {
+        "file_id": file_id,
+        "sheets": sheet_names,
+    }
 
 @router.post("/get_excel_filters")
 def get_excel_filters(req: ExcelFilterRequest):
