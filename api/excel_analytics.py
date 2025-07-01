@@ -29,10 +29,10 @@ def list_excel_sheets(file: UploadFile):
 
 @router.post("/get_excel_filters")
 def get_excel_filters(req: ExcelFilterRequest):
+    sheet_df = get_dataframe(req.file_id, sheet=req.sheet_name)
+
     if sheet_df is None or sheet_df.empty:
         return {"error": "Лист не найден или пуст"}
-
-    sheet_df = get_dataframe(req.file_id, sheet=req.sheet_name)
 
     print("SHEET:", req.sheet_name)
     print("COLUMNS:", sheet_df.columns.tolist())
